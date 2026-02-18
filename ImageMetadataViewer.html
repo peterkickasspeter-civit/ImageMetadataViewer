@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image Metadata Viewer</title>
+<style>
+  @font-face {
+    font-family: 'LocalMono';
+    src: local('JetBrains Mono'), local('Fira Code'), local('Cascadia Code'), local('Source Code Pro'), local('Consolas'), local('Monaco');
+    font-weight: 400 700;
+  }
+  :root {
+    --bg: #0c0c0e;
+    --surface: #151518;
+    --surface2: #1c1c21;
+    --border: #2a2a32;
+    --border-hover: #3a3a45;
+    --text: #e4e4e8;
+    --text-dim: #8888a0;
+    --accent: #6c8aff;
+    --accent-dim: #3d5199;
+    --green: #5ece6d;
+    --orange: #e89b4e;
+    --pink: #d66ba0;
+    --cyan: #4ec8ce;
+    --mono: 'LocalMono', 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Source Code Pro', 'Consolas', 'Monaco', monospace;
+    --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  header {
+    width: 100%;
+    padding: 24px 32px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 {
+    font-family: var(--mono);
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  header h1 span { color: var(--accent); }
+  .container {
+    width: 100%;
+    max-width: 1200px;
+    padding: 32px;
+    display: flex;
+    gap: 24px;
+    flex: 1;
+  }
+  .left-panel { flex: 0 0 400px; display: flex; flex-direction: column; gap: 16px; }
+  .right-panel { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface);
+  }
+  .dropzone:hover, .dropzone.dragover {
+    border-color: var(--accent);
+    background: rgba(108,138,255,0.04);
+  }
+  .dropzone.dragover { transform: scale(1.01); }
+  .dropzone-icon {
+    width: 48px; height: 48px;
+    margin: 0 auto 16px;
+    border-radius: 12px;
+    background: var(--surface2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+  }
+  .dropzone p { color: var(--text-dim); font-size: 14px; line-height: 1.6; }
+  .dropzone p strong { color: var(--accent); }
+  .dropzone input { display: none; }
+  .paste-hint {
+    margin-top: 14px; font-size: 11px; color: var(--text-dim); opacity: 0.55;
+    display: flex; align-items: center; justify-content: center; gap: 4px;
+  }
+  .paste-hint kbd {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 4px;
+    padding: 1px 6px; font-family: var(--mono); font-size: 10px; color: var(--text);
+  }
+  @keyframes pasteFlash {
+    0% { border-color: var(--green); background: rgba(94,206,109,0.08); }
+    100% { border-color: var(--border); background: var(--surface); }
+  }
+  .dropzone.paste-flash { animation: pasteFlash 0.6s ease-out; }
+  .preview-wrap {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    overflow: hidden; display: none;
+  }
+  .preview-wrap.visible { display: block; }
+  .preview-bar {
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    font-family: var(--mono); font-size: 12px; color: var(--text-dim);
+  }
+  .preview-bar .filename {
+    color: var(--text); font-weight: 500;
+    max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .preview-bar .dims { color: var(--cyan); }
+  /* Clickable image */
+  .preview-img-link {
+    display: block;
+    position: relative;
+    background: #09090b;
+    cursor: zoom-in;
+  }
+  .preview-img-link::after {
+    content: '↗ Open full size';
+    position: absolute;
+    bottom: 8px; right: 8px;
+    background: rgba(0,0,0,0.65);
+    color: #fff;
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 5px;
+    opacity: 0;
+    transition: opacity 0.18s;
+    pointer-events: none;
+  }
+  .preview-img-link:hover::after { opacity: 1; }
+  .preview-img { width: 100%; max-height: 400px; object-fit: contain; display: block; }
+  .file-info {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px; display: none; font-family: var(--mono); font-size: 12px; line-height: 1.8;
+  }
+  .file-info.visible { display: block; }
+  .file-info .row { display: flex; justify-content: space-between; }
+  .file-info .label { color: var(--text-dim); }
+  .file-info .value { color: var(--text); font-weight: 500; }
+  .meta-panel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    flex: 1; display: flex; flex-direction: column; overflow: hidden;
+  }
+  .meta-header {
+    padding: 14px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .meta-header h2 { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+  .meta-tabs { display: flex; gap: 4px; }
+  .meta-tab {
+    font-family: var(--mono); font-size: 11px; padding: 4px 10px; border-radius: 6px;
+    border: 1px solid transparent; background: none; color: var(--text-dim); cursor: pointer; transition: all 0.15s;
+  }
+  .meta-tab:hover { color: var(--text); background: var(--surface2); }
+  .meta-tab.active { color: var(--accent); background: rgba(108,138,255,0.08); border-color: var(--accent-dim); }
+  .meta-body {
+    flex: 1; overflow-y: auto; padding: 20px; font-family: var(--mono);
+    font-size: 12.5px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; color: var(--text-dim);
+  }
+  .meta-body::-webkit-scrollbar { width: 6px; }
+  .meta-body::-webkit-scrollbar-track { background: transparent; }
+  .meta-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .meta-body .empty-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100%; min-height: 300px; text-align: center; font-size: 13px; gap: 8px;
+  }
+  .meta-body .empty-state .icon { font-size: 32px; opacity: 0.4; margin-bottom: 8px; }
+  .meta-section { margin-bottom: 16px; }
+  .meta-section-title {
+    color: var(--accent); font-weight: 600; font-size: 13px;
+    margin-bottom: 6px; display: block;
+  }
+  .meta-kv { color: var(--text); }
+  .meta-kv .k { color: var(--text-dim); }
+  .meta-kv .v { color: var(--text); }
+  .meta-prompt-wrap { position: relative; margin: 4px 0 8px; }
+  .meta-prompt-text {
+    color: var(--green); display: block; padding: 8px 12px; padding-right: 70px;
+    background: rgba(94,206,109,0.05); border-radius: 6px; border: 1px solid rgba(94,206,109,0.1);
+    white-space: pre-wrap;
+  }
+  .meta-neg-wrap { position: relative; margin: 4px 0 8px; }
+  .meta-neg-text {
+    color: var(--orange); display: block; padding: 8px 12px; padding-right: 70px;
+    background: rgba(232,155,78,0.05); border-radius: 6px; border: 1px solid rgba(232,155,78,0.1);
+    white-space: pre-wrap;
+  }
+  .meta-model-name { color: var(--pink); font-weight: 600; }
+  .copy-btn {
+    font-family: var(--mono); font-size: 11px; padding: 4px 10px; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--surface2); color: var(--text-dim);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .copy-btn:hover { color: var(--text); border-color: var(--border-hover); }
+  .copy-prompt-btn {
+    position: absolute; top: 6px; right: 6px; font-family: var(--mono); font-size: 10px;
+    padding: 3px 8px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.06); color: var(--text-dim); cursor: pointer;
+    transition: all 0.15s; z-index: 2;
+  }
+  .copy-prompt-btn:hover { color: var(--text); background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
+  /* Parse error notice */
+  .parse-warning {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(232,155,78,0.08); border: 1px solid rgba(232,155,78,0.25);
+    color: var(--orange); border-radius: 6px; padding: 6px 12px;
+    font-size: 11px; margin-bottom: 12px;
+  }
+  @media (max-width: 860px) {
+    .container { flex-direction: column; padding: 16px; }
+    .left-panel { flex: none; }
+  }
+</style>
+</head>
+<body>
+<header><h1><span>⬡</span> metadata<span>.</span>viewer</h1></header>
+<div class="container">
+  <div class="left-panel">
+    <div class="dropzone" id="dropzone">
+      <div class="dropzone-icon">📷</div>
+      <p><strong>Drop image here</strong> or click to browse<br>PNG · WebP · JPEG</p>
+      <div class="paste-hint"><kbd>Ctrl</kbd>+<kbd>V</kbd> to paste from clipboard</div>
+      <input type="file" id="fileInput" accept="image/png,image/webp,image/jpeg">
+    </div>
+    <div class="preview-wrap" id="previewWrap">
+      <div class="preview-bar">
+        <span class="filename" id="previewName">—</span>
+        <span class="dims" id="previewDims">—</span>
+      </div>
+      <!-- image wrapped in <a> that opens in new tab -->
+      <a class="preview-img-link" id="previewLink" href="#" target="_blank" rel="noopener">
+        <img class="preview-img" id="previewImg" alt="preview">
+      </a>
+    </div>
+    <div class="file-info" id="fileInfo">
+      <div class="row"><span class="label">Format</span><span class="value" id="infoFormat">—</span></div>
+      <div class="row"><span class="label">File size</span><span class="value" id="infoSize">—</span></div>
+      <div class="row"><span class="label">Resolution</span><span class="value" id="infoRes">—</span></div>
+      <div class="row"><span class="label">Megapixels</span><span class="value" id="infoMP">—</span></div>
+      <div class="row"><span class="label">Aspect ratio</span><span class="value" id="infoRatio">—</span></div>
+    </div>
+  </div>
+  <div class="right-panel">
+    <div class="meta-panel">
+      <div class="meta-header">
+        <h2>Metadata</h2>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <div class="meta-tabs">
+            <button class="meta-tab active" data-tab="formatted">Formatted</button>
+            <button class="meta-tab" data-tab="raw">Raw</button>
+          </div>
+          <button class="copy-btn" id="copyBtn" title="Copy raw metadata">Copy All</button>
+        </div>
+      </div>
+      <div class="meta-body" id="metaBody">
+        <div class="empty-state">
+          <div class="icon">🧾</div>
+          <div>Upload an image to view its generation metadata</div>
+          <div style="font-size:11px;opacity:0.6">Supports ComfyUI &amp; A1111/WebUI Forge formats</div>
+          <div style="font-size:11px;opacity:0.35;margin-top:4px">Drop, browse, or paste from clipboard</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+let currentRaw = '', currentFormatted = '', currentPositivePrompt = '', currentNegativePrompt = '', activeTab = 'formatted';
+let currentObjectURL = null; // track so we can update the link href
+
+const $ = id => document.getElementById(id);
+const dropzone    = $('dropzone'),
+      fileInput   = $('fileInput'),
+      previewWrap = $('previewWrap'),
+      previewImg  = $('previewImg'),
+      previewLink = $('previewLink'),
+      previewName = $('previewName'),
+      previewDims = $('previewDims'),
+      fileInfo    = $('fileInfo'),
+      metaBody    = $('metaBody');
+
+/* ── Drop / click / paste ── */
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault(); dropzone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
+
+document.addEventListener('paste', e => {
+  const items = e.clipboardData && e.clipboardData.items; if (!items) return;
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].type.indexOf('image') !== -1) {
+      e.preventDefault();
+      const blob = items[i].getAsFile();
+      if (blob) {
+        dropzone.classList.remove('paste-flash');
+        void dropzone.offsetWidth;
+        dropzone.classList.add('paste-flash');
+        handleFile(blob, 'pasted-image.' + (items[i].type.split('/')[1] || 'png'));
+      }
+      return;
+    }
+  }
+});
+
+/* ── Tabs ── */
+document.querySelectorAll('.meta-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.meta-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    activeTab = tab.dataset.tab;
+    renderMeta();
+  });
+});
+
+/* ── Copy all ── */
+$('copyBtn').addEventListener('click', () => {
+  if (currentRaw) navigator.clipboard.writeText(currentRaw).then(() => {
+    const b = $('copyBtn'); b.textContent = 'Copied!'; setTimeout(() => b.textContent = 'Copy All', 1200);
+  });
+});
+
+/* ── Copy individual prompt buttons ── */
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.copy-prompt-btn'); if (!btn) return;
+  const type = btn.dataset.promptType;
+  let text = '';
+  if      (type === 'positive') text = currentPositivePrompt;
+  else if (type === 'negative') text = currentNegativePrompt;
+  else                          text = btn.dataset.promptText || '';
+  if (text) navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy', 1200);
+  });
+});
+
+/* ══════════════════════════════════════════════
+   MAIN HANDLER
+══════════════════════════════════════════════ */
+function handleFile(file, customName) {
+  const name = customName || file.name || 'image';
+
+  // Revoke previous object URL to avoid memory leak
+  if (currentObjectURL) URL.revokeObjectURL(currentObjectURL);
+  currentObjectURL = URL.createObjectURL(file);
+
+  previewImg.onload = () => {
+    const w = previewImg.naturalWidth, h = previewImg.naturalHeight;
+    previewDims.textContent = w + '×' + h;
+    fillFileInfo(file, w, h);
+  };
+  previewImg.src = currentObjectURL;
+  // Set the link href so clicking opens the full image in a new tab
+  previewLink.href = currentObjectURL;
+
+  previewName.textContent = name;
+  previewWrap.classList.add('visible');
+  fileInfo.classList.add('visible');
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    const bytes = new Uint8Array(reader.result);
+    const type  = detectImageType(bytes);
+    let raw = '';
+    if      (type === 'png')  raw = extractPngMetadata(bytes);
+    else if (type === 'webp') raw = extractWebpMetadata(bytes);
+    else if (type === 'jpg')  raw = extractJpegMetadata(bytes);
+
+    currentRaw = raw || 'No generation metadata found in this image.';
+    if (raw) {
+      const r = formatMetadata(raw);
+      currentFormatted = r.html;
+      currentPositivePrompt = r.positive || '';
+      currentNegativePrompt = r.negative || '';
+    } else {
+      currentFormatted = 'No generation metadata found.\n\nThis image may not have been generated by ComfyUI or A1111/WebUI, or its metadata was stripped.';
+      currentPositivePrompt = '';
+      currentNegativePrompt = '';
+    }
+    renderMeta();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+/* ── Detect image type ── */
+function detectImageType(b) {
+  if (b.length < 12) return null;
+  if (b[0]===0x89 && b[1]===0x50 && b[2]===0x4E && b[3]===0x47) return 'png';
+  if (b[0]===0xFF && b[1]===0xD8) return 'jpg';
+  if (b[0]===0x52 && b[1]===0x49 && b[2]===0x46 && b[3]===0x46 &&
+      b[8]===0x57 && b[9]===0x45 && b[10]===0x42 && b[11]===0x50) return 'webp';
+  return null;
+}
+
+function renderMeta() {
+  if (activeTab === 'raw') metaBody.textContent = currentRaw;
+  else                     metaBody.innerHTML   = currentFormatted;
+}
+
+function fillFileInfo(file, w, h) {
+  const t = file.type || '';
+  let ext = 'PNG';
+  if (t.includes('jpeg') || t.includes('jpg')) ext = 'JPEG';
+  else if (t.includes('webp')) ext = 'WebP';
+  $('infoFormat').textContent = ext;
+  const mb = file.size / (1024 * 1024);
+  $('infoSize').textContent  = mb < 1 ? (file.size / 1024).toFixed(1) + ' KB' : mb.toFixed(2) + ' MB';
+  $('infoRes').textContent   = w + ' × ' + h;
+  $('infoMP').textContent    = (w * h / 1e6).toFixed(2) + ' MP';
+  $('infoRatio').textContent = getAspectRatio(w, h);
+}
+
+function gcd(a, b) { while (b) { [a, b] = [b, a % b]; } return a; }
+function getAspectRatio(w, h) {
+  const d = gcd(w, h), wr = w/d, hr = h/d, dec = w/h;
+  const stds = [[1,'1:1'],[1.25,'5:4'],[1.333,'4:3'],[1.5,'3:2'],[1.6,'16:10'],[1.667,'5:3'],[1.778,'16:9'],[2,'2:1'],[2.333,'21:9']];
+  let closest = null, diff = Infinity;
+  for (const [v, s] of stds) { const d2 = Math.abs(v - dec); if (d2 < diff) { diff = d2; closest = s; } }
+  let out = wr + ':' + hr;
+  if (closest && diff < 0.05 && closest !== wr+':'+hr) out += ' (~' + closest + ')';
+  return out;
+}
+
+/* ══════════════════════════════════════════════
+   PNG / WebP / JPEG EXTRACTION
+══════════════════════════════════════════════ */
+function extractPngMetadata(bytes) {
+  if (bytes[0] !== 0x89 || bytes[1] !== 0x50) return '';
+  let offset = 8;
+  const texts = {};
+  while (offset + 8 <= bytes.length) {
+    const len  = (bytes[offset]<<24)|(bytes[offset+1]<<16)|(bytes[offset+2]<<8)|bytes[offset+3];
+    const type = String.fromCharCode(bytes[offset+4], bytes[offset+5], bytes[offset+6], bytes[offset+7]);
+    const ds   = offset + 8;
+    if (ds + len > bytes.length) break;
+    if (type === 'tEXt') {
+      const c = bytes.slice(ds, ds+len);
+      const ni = c.indexOf(0);
+      if (ni > -1) texts[tdec(c.slice(0,ni))] = tdec(c.slice(ni+1));
+    } else if (type === 'iTXt') {
+      const c = bytes.slice(ds, ds+len);
+      const ni = c.indexOf(0);
+      if (ni > -1) {
+        const key = tdec(c.slice(0, ni));
+        let pos = ni + 3;
+        while (pos < c.length && c[pos] !== 0) pos++; pos++;
+        while (pos < c.length && c[pos] !== 0) pos++; pos++;
+        texts[key] = tdec(c.slice(pos));
+      }
+    }
+    if (type === 'IEND') break;
+    offset = ds + len + 4;
+  }
+  if (texts['prompt'])     return texts['prompt'];
+  if (texts['parameters']) return texts['parameters'];
+  if (texts['workflow'])   return texts['workflow'];
+  for (const [, v] of Object.entries(texts)) { if (v.length > 20) return v; }
+  return '';
+}
+
+function extractWebpMetadata(bytes) {
+  if (String.fromCharCode(bytes[0],bytes[1],bytes[2],bytes[3]) !== 'RIFF') return '';
+  let offset = 12;
+  while (offset + 8 < bytes.length) {
+    const id  = String.fromCharCode(bytes[offset],bytes[offset+1],bytes[offset+2],bytes[offset+3]);
+    const len = bytes[offset+4]|(bytes[offset+5]<<8)|(bytes[offset+6]<<16)|(bytes[offset+7]<<24);
+    const ds  = offset + 8;
+    if (id === 'EXIF') {
+      const text = new TextDecoder('utf-8', {fatal:false}).decode(bytes.slice(ds, ds+len));
+      if (text.includes('prompt:')) {
+        const j = text.slice(text.indexOf('prompt:')+7).split('\0')[0];
+        try { JSON.parse(j); return j; } catch(e) {}
+      }
+      if (text.includes('Steps:')) {
+        const m = text.match(/([\s\S]*Steps:\s*\d+[\s\S]*)/);
+        if (m) return m[0].split('\0')[0];
+      }
+      return text.replace(/[\x00-\x08\x0e-\x1f]/g,'').trim();
+    }
+    offset = ds + len + (len % 2);
+  }
+  return '';
+}
+
+function extractJpegMetadata(bytes) {
+  if (bytes[0] !== 0xFF || bytes[1] !== 0xD8) return '';
+  let offset = 2;
+  while (offset < bytes.length - 4) {
+    if (bytes[offset] !== 0xFF) { offset++; continue; }
+    const marker = bytes[offset+1];
+    if (marker === 0xD9 || marker === 0xDA) break;
+    const segLen  = (bytes[offset+2]<<8)|bytes[offset+3];
+    const segData = bytes.slice(offset+4, offset+2+segLen);
+    if (marker === 0xE1) {
+      const text = new TextDecoder('utf-8', {fatal:false}).decode(segData);
+      if (text.includes('prompt:') || text.includes('Steps:') || text.includes('"class_type"')) {
+        if (text.includes('"class_type"')) {
+          const idx = text.indexOf('{');
+          if (idx > -1) {
+            const j = text.slice(idx).split('\0')[0];
+            try { JSON.parse(j); return j; } catch(e) {}
+          }
+        }
+        return text.replace(/[\x00-\x08\x0e-\x1f]/g,'').trim();
+      }
+    }
+    if (marker === 0xFE) {
+      const text = new TextDecoder('utf-8', {fatal:false}).decode(segData);
+      if (text.length > 10) return text;
+    }
+    offset += 2 + segLen;
+  }
+  return '';
+}
+
+function tdec(arr) { return new TextDecoder().decode(arr); }
+
+/* ══════════════════════════════════════════════
+   JSON SANITISER  ← fixes NaN, Infinity, etc.
+══════════════════════════════════════════════ */
+function sanitiseJson(raw) {
+  // Replace bare NaN / Infinity / -Infinity (not inside strings) with null
+  return raw.replace(/:\s*(-?Infinity|NaN)\b/g, ': null');
+}
+
+/* ══════════════════════════════════════════════
+   FORMAT DISPATCHER
+══════════════════════════════════════════════ */
+function detectFormat(raw) {
+  const t = raw.trim();
+  // Try sanitised parse first
+  try { JSON.parse(sanitiseJson(t)); return 'comfyui'; } catch(e) {}
+  if (/Steps:\s*\d+/.test(t)) return 'webui';
+  return 'unknown';
+}
+
+function esc(s)     { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+function formatMetadata(raw) {
+  const f = detectFormat(raw);
+  if (f === 'comfyui') return formatComfyUI(raw);
+  if (f === 'webui')   return formatWebUI(raw);
+  return { html: '<span style="color:var(--text-dim)">Unknown format.\n\n</span>' + esc(raw), positive:'', negative:'' };
+}
+
+function isModelFile(v) {
+  return typeof v === 'string' && v !== 'None' && /\.(safetensors|gguf|ckpt|pt|pth|bin)$/i.test(v);
+}
+
+/* ══════════════════════════════════════════════
+   COMFYUI FORMATTER
+══════════════════════════════════════════════ */
+function formatComfyUI(raw) {
+  let data, hadNaN = false;
+
+  // 1. Try straight parse
+  try {
+    data = JSON.parse(raw.trim());
+  } catch(e) {
+    // 2. Sanitise NaN / Infinity and retry
+    const cleaned = sanitiseJson(raw.trim());
+    hadNaN = cleaned !== raw.trim();
+    try {
+      data = JSON.parse(cleaned);
+    } catch(e2) {
+      return { html: '<span style="color:var(--orange)">⚠ Could not parse JSON metadata.</span>\n\n' + esc(raw), positive:'', negative:'' };
+    }
+  }
+
+  const nodes = Object.entries(data);
+
+  let html = '<div class="meta-section"><span class="meta-section-title">=== ComfyUI Generation Parameters ===</span>';
+  if (hadNaN) {
+    html += '<div class="parse-warning">⚠ Note: metadata contained non-standard JSON values (NaN/Infinity) — sanitised for display.</div>';
+  }
+  html += '</div>';
+
+  /* ── Find SaveImage node and trace the active graph backward ── */
+  let saveNodeId = null;
+  for (const [id, node] of nodes) {
+    const ctl = (node.class_type || '').toLowerCase();
+    if (ctl.includes('saveimage') || ctl.includes('save_image')) { saveNodeId = id; break; }
+  }
+
+  function getConnectedIds(startId) {
+    const visited = new Set();
+    function walk(nid) {
+      if (!nid || visited.has(String(nid))) return;
+      visited.add(String(nid));
+      const node = data[String(nid)]; if (!node) return;
+      for (const v of Object.values(node.inputs || {})) {
+        if (Array.isArray(v) && v.length >= 2 && data[String(v[0])]) walk(v[0]);
+      }
+    }
+    walk(startId);
+    return visited;
+  }
+  const activeIds = saveNodeId ? getConnectedIds(saveNodeId) : new Set(Object.keys(data));
+
+  /* ── Accumulation buckets ── */
+  const allModels    = [];   // {name, type, nodeId, nodeClass}
+  const allLoras     = [];   // {name, strength, clipStr}
+  const allSamplers  = [];   // sampling param objects
+  const allPrompts   = [];   // {text, role, nodeClass, title, nodeId}
+  const allFluxPrompts = []; // {t5, clipl, guidance}
+  const allLatents   = [];   // {w, h}
+  const allResCalcs  = [];
+  const allComponents = {};
+  const allExtra     = [];
+
+  for (const [id, node] of nodes) {
+    if (!activeIds.has(id)) continue;
+    const ct    = node.class_type || '';
+    const ctl   = ct.toLowerCase();
+    const inp   = node.inputs || {};
+    const meta  = node._meta || {};
+    const title = (meta.title || '').toLowerCase();
+
+    /* ── Checkpoint / UNET / GGUF / Diffusion model loaders ── */
+    if (inp.ckpt_name      && isModelFile(inp.ckpt_name))      allModels.push({name:inp.ckpt_name,      type:'Checkpoint', nodeId:id, nodeClass:ct});
+    if (inp.unet_name      && isModelFile(inp.unet_name))      allModels.push({name:inp.unet_name,      type:'UNET',       nodeId:id, nodeClass:ct});
+    if (inp.gguf_name      && isModelFile(inp.gguf_name))      allModels.push({name:inp.gguf_name,      type:'GGUF',       nodeId:id, nodeClass:ct});
+    if (inp.diffusion_model && isModelFile(inp.diffusion_model)) allModels.push({name:inp.diffusion_model, type:'Diffusion', nodeId:id, nodeClass:ct});
+
+    /* ── LoRA loaders ──
+         Handles: LoraLoader, LoraLoaderModelOnly, CR LoRA Stack, etc.
+    ── */
+    const isLoraNode = ctl.includes('lora');
+    if (isLoraNode) {
+      // Standard single-LoRA nodes (LoraLoader, LoraLoaderModelOnly)
+      if (!ctl.includes('stack') && !ctl.includes('stacker')) {
+        const loraName = inp.lora_name;
+        if (loraName && typeof loraName === 'string' && loraName !== 'None') {
+          // strength_model OR strength (some nodes use just 'strength')
+          const strength = inp.strength_model ?? inp.strength_model !== undefined ? inp.strength_model : (inp.strength ?? 1.0);
+          const clipStr  = inp.strength_clip ?? inp.clip_str ?? null;
+          allLoras.push({ name: loraName, strength, clipStr });
+        }
+      }
+      // Stacker / stack nodes — iterate numbered slots
+      if (ctl.includes('stack') || ctl.includes('stacker')) {
+        for (let i = 1; i <= 50; i++) {
+          const lname = inp['lora_name_' + i];
+          if (!lname || typeof lname !== 'string' || lname === 'None') continue;
+          const wt = inp['lora_wt_' + i] ?? inp['model_str_' + i] ?? 1.0;
+          allLoras.push({ name: lname, strength: wt, clipStr: inp['clip_str_' + i] ?? null });
+        }
+      }
+    }
+
+    /* ── Samplers ── */
+    const hasSeed   = inp.seed !== undefined || inp.noise_seed !== undefined;
+    const hasSteps  = inp.steps !== undefined;
+    const isSampler = ctl.includes('ksampler') || ctl.includes('sampler') ||
+                      (ctl.includes('upscale') && (hasSeed || hasSteps));
+
+    if (isSampler && (hasSeed || hasSteps)) {
+      const s = { nodeClass: ct, nodeTitle: meta.title || ct };
+      // Seed — may be a direct value or a link [nodeId, outputIdx]
+      let seedVal = inp.seed ?? inp.noise_seed ?? null;
+      if (Array.isArray(seedVal)) {
+        const seedNode = data[String(seedVal[0])];
+        if (seedNode) seedVal = seedNode.inputs?.seed ?? seedNode.inputs?.noise_seed ?? seedVal;
+      }
+      s.seed      = seedVal;
+      s.steps     = inp.steps     ?? null;
+      s.cfg       = inp.cfg       ?? null;
+      s.sampler   = inp.sampler_name ?? inp.sampler ?? null;
+      s.scheduler = inp.scheduler ?? null;
+      s.denoise   = inp.denoise   ?? null;
+      s.eta       = inp.eta       ?? null;
+      // Extra fields
+      const extras = ['upscale_factor','max_step_scale','reference_strength',
+                      'foreground_detail','background_detail','noise_reference',
+                      'refine_steps','refine_sampler','refine_scheduler'];
+      for (const k of extras) if (inp[k] !== undefined) s[k] = inp[k];
+      allSamplers.push(s);
+    }
+
+    /* ── ModelSampling extras (shift, etc.) ── */
+    if (ctl.includes('modelsampling') && inp.shift !== undefined) {
+      allExtra.push({ key: 'Shift (' + ct + ')', value: inp.shift });
+    }
+
+    /* ── CLIPTextEncode (standard) ── */
+    if (ct === 'CLIPTextEncode') {
+      const text = typeof inp.text === 'string' ? inp.text.trim() : '';
+      if (!text) continue;
+      let role = 'unknown';
+      if      (title.includes('negative') || title.includes('neg ')) role = 'negative';
+      else if (title.includes('positive') || title.includes('prompt')) role = 'positive';
+      allPrompts.push({ text, role, nodeClass: ct, title, nodeId: id });
+    }
+
+    /* ── CLIPTextEncodeFlux ── */
+    if (ct === 'CLIPTextEncodeFlux') {
+      let cl = inp.clip_l  || '', t5 = inp.t5xxl || '';
+      if (typeof cl === 'object') cl = cl.text || '';
+      if (typeof t5 === 'object') t5 = t5.text || '';
+      allFluxPrompts.push({ t5, clipl: cl, guidance: inp.guidance ?? null });
+    }
+
+    /* ── Latent image sizes ── */
+    if ((ctl.includes('empty') && ctl.includes('latent')) || ctl.includes('latentimage')) {
+      if (inp.width && inp.height) allLatents.push({ w: inp.width, h: inp.height });
+    }
+
+    /* ── Resolution calculators ── */
+    if (ctl.includes('resolution')) {
+      const r = {};
+      if (inp.megapixel)    r.megapixel    = inp.megapixel;
+      if (inp.aspect_ratio) r.aspect_ratio = inp.aspect_ratio;
+      if (inp.divisible_by) r.divisible_by = inp.divisible_by;
+      if (Object.keys(r).length) allResCalcs.push(r);
+    }
+
+    /* ── VAE / CLIP / Upscaler components ── */
+    if (inp.vae_name && isModelFile(inp.vae_name) && !allComponents.VAE) allComponents.VAE = inp.vae_name;
+    for (const ck of ['clip_name','clip_name1','clip_name2']) {
+      if (inp[ck] && typeof inp[ck] === 'string' && inp[ck] !== 'None') {
+        const label = ck === 'clip_name1' ? 'CLIP-1' : ck === 'clip_name2' ? 'CLIP-2' : 'CLIP';
+        if (!allComponents[label]) allComponents[label] = inp[ck];
+      }
+    }
+    if (inp.model_name && isModelFile(inp.model_name) && ctl.includes('upscale') && !allComponents.Upscaler)
+      allComponents.Upscaler = inp.model_name;
+    if (inp.upscale_model && isModelFile(inp.upscale_model) && !allComponents.Upscaler)
+      allComponents.Upscaler = inp.upscale_model;
+  }
+
+  /* ════════════════════════════════════
+     Choose the PRIMARY model
+     Prefer the one that feeds into a LoRA or sampler chain
+  ════════════════════════════════════ */
+  let primaryModel = allModels.length ? allModels[0] : null;
+
+  if (allModels.length > 1) {
+    outer: for (const m of allModels) {
+      for (const [id2, node2] of nodes) {
+        if (!activeIds.has(id2)) continue;
+        for (const v of Object.values(node2.inputs || {})) {
+          if (Array.isArray(v) && String(v[0]) === m.nodeId) {
+            const ct2l = (node2.class_type || '').toLowerCase();
+            if (ct2l.includes('lora') || ct2l.includes('patch') || ct2l.includes('sampling') || ct2l.includes('sampler')) {
+              primaryModel = m; break outer;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /* ════════════════════════════════════
+     Resolve positive / negative prompts
+
+     Strategy:
+       1. Prefer nodes with explicit positive/negative in their title.
+       2. For unlabelled nodes, figure out which feeds into the positive
+          conditioning input of the KSampler and which feeds into negative.
+       3. Fall back to "first is positive, second is negative".
+  ════════════════════════════════════ */
+  let positive = '', negative = '';
+
+  if (allPrompts.length) {
+    // Build a map nodeId → prompt entry
+    const promptById = {};
+    for (const p of allPrompts) promptById[p.nodeId] = p;
+
+    // Check what each KSampler's "positive" / "negative" inputs point to
+    const posIds = new Set(), negIds = new Set();
+    for (const [, node] of nodes) {
+      if (!activeIds.has(Object.keys(data).find(k => data[k] === node) || '')) {/* skip */}
+      const inp2 = node.inputs || {};
+      if (Array.isArray(inp2.positive) && promptById[String(inp2.positive[0])]) posIds.add(String(inp2.positive[0]));
+      if (Array.isArray(inp2.negative) && promptById[String(inp2.negative[0])]) negIds.add(String(inp2.negative[0]));
+    }
+
+    // Also scan ALL nodes (not just active) for sampler conditioning links
+    for (const [, node] of Object.entries(data)) {
+      const inp2 = node.inputs || {};
+      if (Array.isArray(inp2.positive) && promptById[String(inp2.positive[0])]) posIds.add(String(inp2.positive[0]));
+      if (Array.isArray(inp2.negative) && promptById[String(inp2.negative[0])]) negIds.add(String(inp2.negative[0]));
+    }
+
+    // Assign roles based on sampler wiring
+    for (const p of allPrompts) {
+      if (posIds.has(p.nodeId)) p.role = 'positive';
+      if (negIds.has(p.nodeId)) p.role = 'negative';
+    }
+
+    const posArr = allPrompts.filter(p => p.role === 'positive');
+    const negArr = allPrompts.filter(p => p.role === 'negative');
+    const unkArr = allPrompts.filter(p => p.role === 'unknown');
+
+    positive = posArr.length ? posArr[0].text : (unkArr.length ? unkArr[0].text : '');
+    negative = negArr.length ? negArr[0].text : '';
+    if (!negative && unkArr.length > 1) negative = unkArr[1].text;
+  }
+
+  /* ════════════════════════════════════  RENDER  ════════════════════════════════════ */
+
+  /* Model */
+  html += `<div class="meta-section">
+    <span class="meta-section-title">🧠 MODEL</span>
+    <span class="meta-model-name">${esc(primaryModel ? primaryModel.name + ' (' + primaryModel.type + ')' : 'N/A')}</span>
+  </div>`;
+
+  /* Sampling */
+  if (allSamplers.length) {
+    for (const s of allSamplers) {
+      const label = allSamplers.length > 1 ? '🎯 SAMPLING — ' + s.nodeTitle : '🎯 SAMPLING SETTINGS';
+      html += `<div class="meta-section"><span class="meta-section-title">${esc(label)}</span>`;
+      const kv = (k, v) => `<div class="meta-kv"><span class="k">${k}</span><span class="v">${esc(v)}</span></div>`;
+      if (s.seed      !== null && s.seed      !== undefined) html += kv('Seed            : ', s.seed);
+      if (s.steps     !== null && s.steps     !== undefined) html += kv('Steps           : ', s.steps);
+      if (s.cfg       !== null && s.cfg       !== undefined) html += kv('CFG Scale       : ', s.cfg);
+      if (s.sampler   !== null && s.sampler   !== undefined) html += kv('Sampler         : ', s.sampler);
+      if (s.scheduler !== null && s.scheduler !== undefined) html += kv('Scheduler       : ', s.scheduler);
+      if (s.denoise   !== null && s.denoise   !== undefined) html += kv('Denoise         : ', s.denoise);
+      if (s.eta       !== null && s.eta       !== undefined) html += kv('Eta             : ', s.eta);
+      const extraLabels = {
+        upscale_factor:'Upscale Factor  : ', max_step_scale:'Max Step Scale  : ',
+        reference_strength:'Ref Strength    : ', foreground_detail:'FG Detail       : ',
+        background_detail:'BG Detail       : ', noise_reference:'Noise Ref       : ',
+        refine_steps:'Refine Steps    : ', refine_sampler:'Refine Sampler  : ',
+        refine_scheduler:'Refine Scheduler: '
+      };
+      for (const [k, label2] of Object.entries(extraLabels)) {
+        if (s[k] !== undefined) html += kv(label2, s[k]);
+      }
+      html += `</div>`;
+    }
+  }
+
+  /* Extra model params (shift, etc.) */
+  if (allExtra.length) {
+    html += `<div class="meta-section"><span class="meta-section-title">🔧 MODEL PARAMETERS</span>`;
+    for (const e of allExtra)
+      html += `<div class="meta-kv"><span class="k">  ${esc(e.key)}: </span><span class="v">${esc(e.value)}</span></div>`;
+    html += `</div>`;
+  }
+
+  /* Prompts */
+  html += `<div class="meta-section"><span class="meta-section-title">📝 PROMPTS</span>`;
+  if (allFluxPrompts.length) {
+    const fp = allFluxPrompts[0];
+    if (fp.t5) {
+      html += `<div class="meta-kv"><span class="k">T5XXL:</span></div>`;
+      html += `<div class="meta-prompt-wrap"><span class="meta-prompt-text">${esc(fp.t5)}</span><button class="copy-prompt-btn" data-prompt-type="t5xxl" data-prompt-text="${escAttr(fp.t5)}">Copy</button></div>`;
+      if (!positive) positive = fp.t5;
+    }
+    if (fp.clipl) {
+      html += `<div class="meta-kv"><span class="k">CLIP-L:</span></div>`;
+      html += `<div class="meta-prompt-wrap"><span class="meta-prompt-text">${esc(fp.clipl)}</span><button class="copy-prompt-btn" data-prompt-type="clipl" data-prompt-text="${escAttr(fp.clipl)}">Copy</button></div>`;
+    }
+    if (fp.guidance !== null) html += `<div class="meta-kv"><span class="k">Guidance: </span><span class="v">${esc(fp.guidance)}</span></div>`;
+  } else {
+    html += `<div class="meta-kv"><span class="k">Positive:</span></div>`;
+    html += `<div class="meta-prompt-wrap"><span class="meta-prompt-text">${esc(positive || '(empty)')}</span><button class="copy-prompt-btn" data-prompt-type="positive">Copy</button></div>`;
+    if (negative) {
+      html += `<div class="meta-kv"><span class="k">Negative:</span></div>`;
+      html += `<div class="meta-neg-wrap"><span class="meta-neg-text">${esc(negative)}</span><button class="copy-prompt-btn" data-prompt-type="negative">Copy</button></div>`;
+    }
+  }
+  html += `</div>`;
+
+  /* LoRAs */
+  if (allLoras.length) {
+    const seen = new Set();
+    const unique = allLoras.filter(l => { if (seen.has(l.name)) return false; seen.add(l.name); return true; });
+    html += `<div class="meta-section"><span class="meta-section-title">🎨 LORA MODELS</span>`;
+    for (const l of unique) {
+      const fn = l.name.split(/[/\\]/).pop();
+      const strengthLabel = l.clipStr !== null && l.clipStr !== undefined
+        ? `Model: ${esc(l.strength)}, CLIP: ${esc(l.clipStr)}`
+        : `Strength: ${esc(l.strength)}`;
+      html += `<div class="meta-kv">  ${esc(fn)} <span class="k">(${strengthLabel})</span></div>`;
+    }
+    html += `</div>`;
+  }
+
+  /* Components (secondary models, VAE, CLIP, Upscaler) */
+  const primaryFile  = primaryModel ? primaryModel.name : null;
+  const loraNames    = new Set(allLoras.map(l => l.name));
+  for (const m of allModels) {
+    if (m.name === primaryFile) continue;
+    if (loraNames.has(m.name))  continue;
+    const label = m.type;
+    if (!allComponents[label])          allComponents[label]        = m.name;
+    else if (!allComponents[label+' (2)']) allComponents[label+' (2)'] = m.name;
+  }
+  const compEntries = Object.entries(allComponents);
+  if (compEntries.length) {
+    html += `<div class="meta-section"><span class="meta-section-title">⚙️ MODELS &amp; COMPONENTS</span>`;
+    for (const [t, n] of compEntries)
+      html += `<div class="meta-kv"><span class="k">  ${esc(t)}: </span><span class="v">${esc(n)}</span></div>`;
+    html += `</div>`;
+  }
+
+  /* Latent dimensions */
+  if (allLatents.length) {
+    allLatents.sort((a, b) => (b.w * b.h) - (a.w * a.h));
+    const largest  = allLatents[0];
+    const smallest = allLatents[allLatents.length - 1];
+    html += `<div class="meta-section"><span class="meta-section-title">📏 LATENT DIMENSIONS</span>`;
+    if (allLatents.length > 1) {
+      html += `<div class="meta-kv"><span class="k">  Initial : </span><span class="v">${smallest.w} × ${smallest.h}</span></div>`;
+      html += `<div class="meta-kv"><span class="k">  Largest : </span><span class="v">${largest.w} × ${largest.h}</span></div>`;
+      const uniqueSizes = [...new Set(allLatents.map(l => l.w + '×' + l.h))];
+      if (uniqueSizes.length > 2)
+        html += `<div class="meta-kv"><span class="k">  All     : </span><span class="v">${uniqueSizes.join(', ')}</span></div>`;
+    } else {
+      html += `<div class="meta-kv"><span class="k">  Size: </span><span class="v">${largest.w} × ${largest.h}</span></div>`;
+    }
+    html += `</div>`;
+  }
+
+  /* Resolution calculator */
+  if (allResCalcs.length) {
+    html += `<div class="meta-section"><span class="meta-section-title">📐 RESOLUTION SETTINGS</span>`;
+    for (const r of allResCalcs) {
+      if (r.megapixel)    html += `<div class="meta-kv"><span class="k">  Megapixel: </span><span class="v">${esc(r.megapixel)}</span></div>`;
+      if (r.aspect_ratio) html += `<div class="meta-kv"><span class="k">  Aspect   : </span><span class="v">${esc(r.aspect_ratio)}</span></div>`;
+      if (r.divisible_by) html += `<div class="meta-kv"><span class="k">  Div by   : </span><span class="v">${esc(r.divisible_by)}</span></div>`;
+    }
+    html += `</div>`;
+  }
+
+  return { html, positive, negative };
+}
+
+/* ══════════════════════════════════════════════
+   WEBUI / A1111 FORMATTER
+══════════════════════════════════════════════ */
+function formatWebUI(raw) {
+  const lines = raw.trim().split('\n');
+  let positive = '', negative = '', metaLine = '';
+  for (const line of lines) {
+    if (line.startsWith('Negative prompt:'))       negative = line.replace('Negative prompt:','').trim();
+    else if (/Steps:\s*\d+/.test(line))            metaLine = line;
+    else if (!metaLine && !line.startsWith('Negative prompt:')) positive += line + ' ';
+  }
+  positive = positive.trim();
+  const p = pat => { const m = metaLine.match(pat); return m ? m[1].trim() : null; };
+  const model     = p(/Model:\s*([^,\n]+)/);
+  const seed      = p(/Seed:\s*(\d+)/);
+  const steps     = p(/Steps:\s*(\d+)/);
+  const cfg       = p(/CFG scale:\s*([\d.]+)/);
+  const sampler   = p(/Sampler:\s*([^,\n]+)/);
+  const scheduler = p(/Schedule type:\s*([^,\n]+)/);
+  const size      = p(/Size:\s*(\d+x\d+)/);
+  const denoise   = p(/Denoising strength:\s*([\d.]+)/);
+  const clipSkip  = p(/Clip skip:\s*(\d+)/);
+  const version   = p(/Version:\s*([^,\n]+)/);
+  const modelHash = p(/Model hash:\s*([^,\n]+)/);
+
+  let html = '<div class="meta-section"><span class="meta-section-title">=== WebUI / A1111 Generation Parameters ===</span></div>';
+  html += `<div class="meta-section"><span class="meta-section-title">🧠 MODEL</span><span class="meta-model-name">${esc(model||'N/A')}</span></div>`;
+  html += `<div class="meta-section"><span class="meta-section-title">📝 PROMPTS</span>`;
+  html += `<div class="meta-kv"><span class="k">Positive:</span></div><div class="meta-prompt-wrap"><span class="meta-prompt-text">${esc(positive||'(empty)')}</span><button class="copy-prompt-btn" data-prompt-type="positive">Copy</button></div>`;
+  if (negative)
+    html += `<div class="meta-kv"><span class="k">Negative:</span></div><div class="meta-neg-wrap"><span class="meta-neg-text">${esc(negative)}</span><button class="copy-prompt-btn" data-prompt-type="negative">Copy</button></div>`;
+  html += `</div>`;
+
+  html += `<div class="meta-section"><span class="meta-section-title">🎯 SAMPLING SETTINGS</span>`;
+  const kv = (k, v) => `<div class="meta-kv"><span class="k">${k}</span><span class="v">${esc(v)}</span></div>`;
+  if (seed)      html += kv('Seed      : ', seed);
+  if (steps)     html += kv('Steps     : ', steps);
+  if (cfg)       html += kv('CFG Scale : ', cfg);
+  if (sampler)   html += kv('Sampler   : ', sampler);
+  if (scheduler) html += kv('Scheduler : ', scheduler);
+  if (denoise)   html += kv('Denoise   : ', denoise);
+  html += `</div>`;
+
+  if (size) html += `<div class="meta-section"><span class="meta-section-title">📏 DIMENSIONS</span><div class="meta-kv"><span class="k">  Size: </span><span class="v">${esc(size)}</span></div></div>`;
+
+  const loraMatches = [...raw.matchAll(/<lora:([^:]+):([\d.]+)>/g)];
+  if (loraMatches.length) {
+    html += `<div class="meta-section"><span class="meta-section-title">🎨 LORA MODELS</span>`;
+    loraMatches.forEach(m => { html += `<div class="meta-kv">  ${esc(m[1])} <span class="k">(Strength: ${esc(m[2])})</span></div>`; });
+    html += `</div>`;
+  }
+
+  if (modelHash || clipSkip || version) {
+    html += `<div class="meta-section"><span class="meta-section-title">⚙️ ADVANCED</span>`;
+    if (modelHash) html += kv('  Model Hash: ', modelHash);
+    if (clipSkip)  html += kv('  Clip Skip : ', clipSkip);
+    if (version)   html += kv('  Version   : ', version);
+    html += `</div>`;
+  }
+
+  return { html, positive, negative };
+}
+</script>
+</body>
+</html>
