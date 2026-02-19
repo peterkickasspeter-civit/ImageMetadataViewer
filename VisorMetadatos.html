@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Image Metadata Viewer</title>
+<title>Visor de Metadatos</title>
 <style>
   @font-face {
     font-family: 'LocalMono';
@@ -124,7 +124,7 @@
     cursor: zoom-in;
   }
   .preview-img-link::after {
-    content: '↗ Open full size';
+    content: '↗ Abrir tamaño completo';
     position: absolute;
     bottom: 8px; right: 8px;
     background: rgba(0,0,0,0.65);
@@ -223,13 +223,13 @@
 </style>
 </head>
 <body>
-<header><h1><span>⬡</span> metadata<span>.</span>viewer</h1></header>
+<header><h1><span>⬡</span> visor de <span>metadatos</span></h1></header>
 <div class="container">
   <div class="left-panel">
     <div class="dropzone" id="dropzone">
       <div class="dropzone-icon">📷</div>
-      <p><strong>Drop image here</strong> or click to browse<br>PNG · WebP · JPEG</p>
-      <div class="paste-hint"><kbd>Ctrl</kbd>+<kbd>V</kbd> to paste from clipboard</div>
+      <p><strong>Arrastra una imagen aquí</strong> o haz clic para buscar<br>PNG · WebP · JPEG</p>
+      <div class="paste-hint"><kbd>Ctrl</kbd>+<kbd>V</kbd> para pegar desde el portapapeles</div>
       <input type="file" id="fileInput" accept="image/png,image/webp,image/jpeg">
     </div>
     <div class="preview-wrap" id="previewWrap">
@@ -243,31 +243,31 @@
       </a>
     </div>
     <div class="file-info" id="fileInfo">
-      <div class="row"><span class="label">Format</span><span class="value" id="infoFormat">—</span></div>
-      <div class="row"><span class="label">File size</span><span class="value" id="infoSize">—</span></div>
-      <div class="row"><span class="label">Resolution</span><span class="value" id="infoRes">—</span></div>
-      <div class="row"><span class="label">Megapixels</span><span class="value" id="infoMP">—</span></div>
-      <div class="row"><span class="label">Aspect ratio</span><span class="value" id="infoRatio">—</span></div>
+      <div class="row"><span class="label">Formato</span><span class="value" id="infoFormat">—</span></div>
+      <div class="row"><span class="label">Tamaño</span><span class="value" id="infoSize">—</span></div>
+      <div class="row"><span class="label">Resolución</span><span class="value" id="infoRes">—</span></div>
+      <div class="row"><span class="label">Megapíxeles</span><span class="value" id="infoMP">—</span></div>
+      <div class="row"><span class="label">Proporción</span><span class="value" id="infoRatio">—</span></div>
     </div>
   </div>
   <div class="right-panel">
     <div class="meta-panel">
       <div class="meta-header">
-        <h2>Metadata</h2>
+        <h2>Metadatos</h2>
         <div style="display:flex;gap:6px;align-items:center;">
           <div class="meta-tabs">
-            <button class="meta-tab active" data-tab="formatted">Formatted</button>
-            <button class="meta-tab" data-tab="raw">Raw</button>
+            <button class="meta-tab active" data-tab="formatted">Organizado</button>
+            <button class="meta-tab" data-tab="raw">Sin formato</button>
           </div>
-          <button class="copy-btn" id="copyBtn" title="Copy raw metadata">Copy All</button>
+          <button class="copy-btn" id="copyBtn" title="Copiar metadatos sin formato">Copiar todo</button>
         </div>
       </div>
       <div class="meta-body" id="metaBody">
         <div class="empty-state">
           <div class="icon">🧾</div>
-          <div>Upload an image to view its generation metadata</div>
-          <div style="font-size:11px;opacity:0.6">Supports ComfyUI &amp; A1111/WebUI Forge formats</div>
-          <div style="font-size:11px;opacity:0.35;margin-top:4px">Drop, browse, or paste from clipboard</div>
+          <div>Sube una imagen para ver sus metadatos de generación</div>
+          <div style="font-size:11px;opacity:0.6">Compatible con los formatos ComfyUI y A1111/WebUI Forge</div>
+          <div style="font-size:11px;opacity:0.35;margin-top:4px">Arrastra, busca o pega desde el portapapeles</div>
         </div>
       </div>
     </div>
@@ -328,7 +328,7 @@ document.querySelectorAll('.meta-tab').forEach(tab => {
 /* ── Copy all ── */
 $('copyBtn').addEventListener('click', () => {
   if (currentRaw) navigator.clipboard.writeText(currentRaw).then(() => {
-    const b = $('copyBtn'); b.textContent = 'Copied!'; setTimeout(() => b.textContent = 'Copy All', 1200);
+    const b = $('copyBtn'); b.textContent = '¡Copiado!'; setTimeout(() => b.textContent = 'Copiar todo', 1200);
   });
 });
 
@@ -341,7 +341,7 @@ document.addEventListener('click', e => {
   else if (type === 'negative') text = currentNegativePrompt;
   else                          text = btn.dataset.promptText || '';
   if (text) navigator.clipboard.writeText(text).then(() => {
-    btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy', 1200);
+    btn.textContent = '¡Copiado!'; setTimeout(() => btn.textContent = 'Copiar', 1200);
   });
 });
 
@@ -377,14 +377,14 @@ function handleFile(file, customName) {
     else if (type === 'webp') raw = extractWebpMetadata(bytes);
     else if (type === 'jpg')  raw = extractJpegMetadata(bytes);
 
-    currentRaw = raw || 'No generation metadata found in this image.';
+    currentRaw = raw || 'No se encontraron metadatos de generación en esta imagen.';
     if (raw) {
       const r = formatMetadata(raw);
       currentFormatted = r.html;
       currentPositivePrompt = r.positive || '';
       currentNegativePrompt = r.negative || '';
     } else {
-      currentFormatted = 'No generation metadata found.\n\nThis image may not have been generated by ComfyUI or A1111/WebUI, or its metadata was stripped.';
+      currentFormatted = 'No se encontraron metadatos de generación.\n\nEs posible que esta imagen no haya sido generada por ComfyUI o A1111/WebUI, o que sus metadatos hayan sido eliminados.';
       currentPositivePrompt = '';
       currentNegativePrompt = '';
     }
@@ -548,11 +548,41 @@ function detectFormat(raw) {
 function esc(s)     { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function escAttr(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
+function translateAspectRatio(val) {
+  const dict = {
+    'Classic Landscape':       'Paisaje clásico',
+    'Classic Portrait':        'Retrato clásico',
+    'Standard Landscape':      'Paisaje estándar',
+    'Standard Portrait':       'Retrato estándar',
+    'Square':                  'Cuadrado',
+    'Landscape':               'Paisaje',
+    'Portrait':                'Retrato',
+    'Cinematic Landscape':     'Paisaje cinematográfico',
+    'Cinematic Portrait':      'Retrato cinematográfico',
+    'Cinematic':               'Cinematográfico',
+    'Ultra Wide':              'Ultra panorámico',
+    'Ultra Wide Landscape':    'Paisaje ultra panorámico',
+    'Panoramic':               'Panorámico',
+    'Widescreen':              'Pantalla ancha',
+    'Widescreen Landscape':    'Paisaje pantalla ancha',
+    'Widescreen Portrait':     'Retrato pantalla ancha',
+    'Mobile':                  'Móvil',
+    'Mobile Portrait':         'Retrato móvil',
+    'Tall Portrait':           'Retrato alargado',
+    'Wide Landscape':          'Paisaje ancho',
+  };
+  let result = val;
+  for (const [en, es] of Object.entries(dict)) {
+    result = result.replace(en, es);
+  }
+  return result;
+}
+
 function formatMetadata(raw) {
   const f = detectFormat(raw);
   if (f === 'comfyui') return formatComfyUI(raw);
   if (f === 'webui')   return formatWebUI(raw);
-  return { html: '<span style="color:var(--text-dim)">Unknown format.\n\n</span>' + esc(raw), positive:'', negative:'' };
+  return { html: '<span style="color:var(--text-dim)">Formato desconocido.\n\n</span>' + esc(raw), positive:'', negative:'' };
 }
 
 function isModelFile(v) {
@@ -575,15 +605,15 @@ function formatComfyUI(raw) {
     try {
       data = JSON.parse(cleaned);
     } catch(e2) {
-      return { html: '<span style="color:var(--orange)">⚠ Could not parse JSON metadata.</span>\n\n' + esc(raw), positive:'', negative:'' };
+      return { html: '<span style="color:var(--orange)">⚠ No se pudo analizar los metadatos JSON.</span>\n\n' + esc(raw), positive:'', negative:'' };
     }
   }
 
   const nodes = Object.entries(data);
 
-  let html = '<div class="meta-section"><span class="meta-section-title">=== ComfyUI Generation Parameters ===</span>';
+  let html = '<div class="meta-section"><span class="meta-section-title">=== Parámetros de Generación ComfyUI ===</span>';
   if (hadNaN) {
-    html += '<div class="parse-warning">⚠ Note: metadata contained non-standard JSON values (NaN/Infinity) — sanitised for display.</div>';
+    html += '<div class="parse-warning">⚠ Nota: los metadatos contenían valores JSON no estándar (NaN/Infinity) — saneados para visualización.</div>';
   }
   html += '</div>';
 
@@ -813,14 +843,14 @@ function formatComfyUI(raw) {
 
   /* Model */
   html += `<div class="meta-section">
-    <span class="meta-section-title">🧠 MODEL</span>
+    <span class="meta-section-title">🧠 MODELO</span>
     <span class="meta-model-name">${esc(primaryModel ? primaryModel.name + ' (' + primaryModel.type + ')' : 'N/A')}</span>
   </div>`;
 
   /* Sampling */
   if (allSamplers.length) {
     for (const s of allSamplers) {
-      const label = allSamplers.length > 1 ? '🎯 SAMPLING — ' + s.nodeTitle : '🎯 SAMPLING SETTINGS';
+    const label = allSamplers.length > 1 ? '🎯 MUESTREO — ' + s.nodeTitle : '🎯 CONFIGURACIÓN DE MUESTREO';
       html += `<div class="meta-section"><span class="meta-section-title">${esc(label)}</span>`;
       const kv = (k, v) => `<div class="meta-kv"><span class="k">${k}</span><span class="v">${esc(v)}</span></div>`;
       if (s.seed      !== null && s.seed      !== undefined) html += kv('Seed            : ', s.seed);
@@ -829,7 +859,7 @@ function formatComfyUI(raw) {
       if (s.sampler   !== null && s.sampler   !== undefined) html += kv('Sampler         : ', s.sampler);
       if (s.scheduler !== null && s.scheduler !== undefined) html += kv('Scheduler       : ', s.scheduler);
       if (s.denoise   !== null && s.denoise   !== undefined) html += kv('Denoise         : ', s.denoise);
-      if (s.eta       !== null && s.eta       !== undefined) html += kv('Eta             : ', s.eta);
+      if (s.eta       !== null && s.eta       !== undefined) html += kv('ETA             : ', s.eta);
       const extraLabels = {
         upscale_factor:'Upscale Factor  : ', max_step_scale:'Max Step Scale  : ',
         reference_strength:'Ref Strength    : ', foreground_detail:'FG Detail       : ',
@@ -846,7 +876,7 @@ function formatComfyUI(raw) {
 
   /* Extra model params (shift, etc.) */
   if (allExtra.length) {
-    html += `<div class="meta-section"><span class="meta-section-title">🔧 MODEL PARAMETERS</span>`;
+    html += `<div class="meta-section"><span class="meta-section-title">🔧 PARÁMETROS DEL MODELO</span>`;
     for (const e of allExtra)
       html += `<div class="meta-kv"><span class="k">  ${esc(e.key)}: </span><span class="v">${esc(e.value)}</span></div>`;
     html += `</div>`;
@@ -867,11 +897,11 @@ function formatComfyUI(raw) {
     }
     if (fp.guidance !== null) html += `<div class="meta-kv"><span class="k">Guidance: </span><span class="v">${esc(fp.guidance)}</span></div>`;
   } else {
-    html += `<div class="meta-kv"><span class="k">Positive:</span></div>`;
-    html += `<div class="meta-prompt-wrap"><span class="meta-prompt-text">${esc(positive || '(empty)')}</span><button class="copy-prompt-btn" data-prompt-type="positive">Copy</button></div>`;
+    html += `<div class="meta-kv"><span class="k">Positivo:</span></div>`;
+    html += `<div class="meta-prompt-wrap"><span class="meta-prompt-text">${esc(positive || '(vacío)')}</span><button class="copy-prompt-btn" data-prompt-type="positive">Copiar</button></div>`;
     if (negative) {
-      html += `<div class="meta-kv"><span class="k">Negative:</span></div>`;
-      html += `<div class="meta-neg-wrap"><span class="meta-neg-text">${esc(negative)}</span><button class="copy-prompt-btn" data-prompt-type="negative">Copy</button></div>`;
+      html += `<div class="meta-kv"><span class="k">Negativo:</span></div>`;
+      html += `<div class="meta-neg-wrap"><span class="meta-neg-text">${esc(negative)}</span><button class="copy-prompt-btn" data-prompt-type="negative">Copiar</button></div>`;
     }
   }
   html += `</div>`;
@@ -880,12 +910,12 @@ function formatComfyUI(raw) {
   if (allLoras.length) {
     const seen = new Set();
     const unique = allLoras.filter(l => { if (seen.has(l.name)) return false; seen.add(l.name); return true; });
-    html += `<div class="meta-section"><span class="meta-section-title">🎨 LORA MODELS</span>`;
+    html += `<div class="meta-section"><span class="meta-section-title">🎨 LORAS ACTIVOS</span>`;
     for (const l of unique) {
       const fn = l.name.split(/[/\\]/).pop();
       const strengthLabel = l.clipStr !== null && l.clipStr !== undefined
-        ? `Model: ${esc(l.strength)}, CLIP: ${esc(l.clipStr)}`
-        : `Strength: ${esc(l.strength)}`;
+        ? `Modelo: ${esc(l.strength)}, CLIP: ${esc(l.clipStr)}`
+        : `Intensidad: ${esc(l.strength)}`;
       html += `<div class="meta-kv">  ${esc(fn)} <span class="k">(${strengthLabel})</span></div>`;
     }
     html += `</div>`;
@@ -903,37 +933,21 @@ function formatComfyUI(raw) {
   }
   const compEntries = Object.entries(allComponents);
   if (compEntries.length) {
-    html += `<div class="meta-section"><span class="meta-section-title">⚙️ MODELS &amp; COMPONENTS</span>`;
+    html += `<div class="meta-section"><span class="meta-section-title">⚙️ MODELOS Y COMPONENTES</span>`;
     for (const [t, n] of compEntries)
       html += `<div class="meta-kv"><span class="k">  ${esc(t)}: </span><span class="v">${esc(n)}</span></div>`;
     html += `</div>`;
   }
 
-  /* Latent dimensions */
-  if (allLatents.length) {
-    allLatents.sort((a, b) => (b.w * b.h) - (a.w * a.h));
-    const largest  = allLatents[0];
-    const smallest = allLatents[allLatents.length - 1];
-    html += `<div class="meta-section"><span class="meta-section-title">📏 LATENT DIMENSIONS</span>`;
-    if (allLatents.length > 1) {
-      html += `<div class="meta-kv"><span class="k">  Initial : </span><span class="v">${smallest.w} × ${smallest.h}</span></div>`;
-      html += `<div class="meta-kv"><span class="k">  Largest : </span><span class="v">${largest.w} × ${largest.h}</span></div>`;
-      const uniqueSizes = [...new Set(allLatents.map(l => l.w + '×' + l.h))];
-      if (uniqueSizes.length > 2)
-        html += `<div class="meta-kv"><span class="k">  All     : </span><span class="v">${uniqueSizes.join(', ')}</span></div>`;
-    } else {
-      html += `<div class="meta-kv"><span class="k">  Size: </span><span class="v">${largest.w} × ${largest.h}</span></div>`;
-    }
-    html += `</div>`;
-  }
+
 
   /* Resolution calculator */
   if (allResCalcs.length) {
-    html += `<div class="meta-section"><span class="meta-section-title">📐 RESOLUTION SETTINGS</span>`;
+    html += `<div class="meta-section"><span class="meta-section-title">📐 CONFIGURACIÓN DE RESOLUCIÓN</span>`;
     for (const r of allResCalcs) {
-      if (r.megapixel)    html += `<div class="meta-kv"><span class="k">  Megapixel: </span><span class="v">${esc(r.megapixel)}</span></div>`;
-      if (r.aspect_ratio) html += `<div class="meta-kv"><span class="k">  Aspect   : </span><span class="v">${esc(r.aspect_ratio)}</span></div>`;
-      if (r.divisible_by) html += `<div class="meta-kv"><span class="k">  Div by   : </span><span class="v">${esc(r.divisible_by)}</span></div>`;
+      if (r.megapixel)    html += `<div class="meta-kv"><span class="k">  Megapíxel: </span><span class="v">${esc(r.megapixel)}</span></div>`;
+      if (r.aspect_ratio) html += `<div class="meta-kv"><span class="k">  Proporción: </span><span class="v">${esc(translateAspectRatio(r.aspect_ratio))}</span></div>`;
+      if (r.divisible_by) html += `<div class="meta-kv"><span class="k">  Div por  : </span><span class="v">${esc(r.divisible_by)}</span></div>`;
     }
     html += `</div>`;
   }
@@ -966,15 +980,15 @@ function formatWebUI(raw) {
   const version   = p(/Version:\s*([^,\n]+)/);
   const modelHash = p(/Model hash:\s*([^,\n]+)/);
 
-  let html = '<div class="meta-section"><span class="meta-section-title">=== WebUI / A1111 Generation Parameters ===</span></div>';
-  html += `<div class="meta-section"><span class="meta-section-title">🧠 MODEL</span><span class="meta-model-name">${esc(model||'N/A')}</span></div>`;
+  let html = '<div class="meta-section"><span class="meta-section-title">=== Parámetros de Generación WebUI / A1111 ===</span></div>';
+  html += `<div class="meta-section"><span class="meta-section-title">🧠 MODELO</span><span class="meta-model-name">${esc(model||'N/A')}</span></div>`;
   html += `<div class="meta-section"><span class="meta-section-title">📝 PROMPTS</span>`;
-  html += `<div class="meta-kv"><span class="k">Positive:</span></div><div class="meta-prompt-wrap"><span class="meta-prompt-text">${esc(positive||'(empty)')}</span><button class="copy-prompt-btn" data-prompt-type="positive">Copy</button></div>`;
+  html += `<div class="meta-kv"><span class="k">Positivo:</span></div><div class="meta-prompt-wrap"><span class="meta-prompt-text">${esc(positive||'(vacío)')}</span><button class="copy-prompt-btn" data-prompt-type="positive">Copiar</button></div>`;
   if (negative)
-    html += `<div class="meta-kv"><span class="k">Negative:</span></div><div class="meta-neg-wrap"><span class="meta-neg-text">${esc(negative)}</span><button class="copy-prompt-btn" data-prompt-type="negative">Copy</button></div>`;
+    html += `<div class="meta-kv"><span class="k">Negativo:</span></div><div class="meta-neg-wrap"><span class="meta-neg-text">${esc(negative)}</span><button class="copy-prompt-btn" data-prompt-type="negative">Copiar</button></div>`;
   html += `</div>`;
 
-  html += `<div class="meta-section"><span class="meta-section-title">🎯 SAMPLING SETTINGS</span>`;
+  html += `<div class="meta-section"><span class="meta-section-title">🎯 CONFIGURACIÓN DE MUESTREO</span>`;
   const kv = (k, v) => `<div class="meta-kv"><span class="k">${k}</span><span class="v">${esc(v)}</span></div>`;
   if (seed)      html += kv('Seed      : ', seed);
   if (steps)     html += kv('Steps     : ', steps);
@@ -984,17 +998,17 @@ function formatWebUI(raw) {
   if (denoise)   html += kv('Denoise   : ', denoise);
   html += `</div>`;
 
-  if (size) html += `<div class="meta-section"><span class="meta-section-title">📏 DIMENSIONS</span><div class="meta-kv"><span class="k">  Size: </span><span class="v">${esc(size)}</span></div></div>`;
+  if (size) html += `<div class="meta-section"><span class="meta-section-title">📏 DIMENSIONES</span><div class="meta-kv"><span class="k">  Tamaño: </span><span class="v">${esc(size)}</span></div></div>`;
 
   const loraMatches = [...raw.matchAll(/<lora:([^:]+):([\d.]+)>/g)];
   if (loraMatches.length) {
-    html += `<div class="meta-section"><span class="meta-section-title">🎨 LORA MODELS</span>`;
-    loraMatches.forEach(m => { html += `<div class="meta-kv">  ${esc(m[1])} <span class="k">(Strength: ${esc(m[2])})</span></div>`; });
+    html += `<div class="meta-section"><span class="meta-section-title">🎨 LORAS ACTIVOS</span>`;
+    loraMatches.forEach(m => { html += `<div class="meta-kv">  ${esc(m[1])} <span class="k">(Intensidad: ${esc(m[2])})</span></div>`; });
     html += `</div>`;
   }
 
   if (modelHash || clipSkip || version) {
-    html += `<div class="meta-section"><span class="meta-section-title">⚙️ ADVANCED</span>`;
+    html += `<div class="meta-section"><span class="meta-section-title">⚙️ AVANZADO</span>`;
     if (modelHash) html += kv('  Model Hash: ', modelHash);
     if (clipSkip)  html += kv('  Clip Skip : ', clipSkip);
     if (version)   html += kv('  Version   : ', version);
